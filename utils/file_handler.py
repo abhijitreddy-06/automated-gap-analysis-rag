@@ -1,0 +1,14 @@
+import os
+
+UPLOAD_DIR = "uploads"
+
+def save_uploaded_file(uploaded_file):
+    if not os.path.exists(UPLOAD_DIR):
+        os.makedirs(UPLOAD_DIR)
+
+    file_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
+
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    return file_path

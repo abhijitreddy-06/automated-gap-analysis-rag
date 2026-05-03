@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
+
+# Python testing
+.pytest_cache/
+
+# Uploads and local DB
+/uploads/
+/nexus_chroma_db_local/
+
+# Logs
+*.log
