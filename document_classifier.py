@@ -1,20 +1,12 @@
 import os
 
-import fitz  # PyMuPDF
+import fitz
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 
-
-# ==========================================
-# 1. CONFIG
-# ==========================================
 load_dotenv()
 
-
-# ==========================================
-# 2. SMART SAMPLING
-# ==========================================
 def extract_smart_sample(file_path: str) -> str:
     try:
         doc = fitz.open(file_path)
@@ -43,17 +35,12 @@ def extract_smart_sample(file_path: str) -> str:
         print(f"Extraction error: {e}")
         return ""
 
-
-# ==========================================
-# 3. CLASSIFIER (MODIFIED OUTPUT ONLY)
-# ==========================================
 def classify_document_text(text: str) -> bool:
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         temperature=0.0
     )
 
-    # 🔥 STRICT BOOLEAN OUTPUT PROMPT
     system_prompt = """
 You are a document classifier.
 
@@ -85,13 +72,8 @@ Text:
     response = chain.invoke({"text": text[:10000]})
 
     result = response.content.strip().upper()
-
     return result == "TRUE"
 
-
-# ==========================================
-# 4. MAIN FUNCTION (THIS IS WHAT YOU USE)
-# ==========================================
 def classify_document(file_path: str) -> bool:
     sample_text = extract_smart_sample(file_path)
 

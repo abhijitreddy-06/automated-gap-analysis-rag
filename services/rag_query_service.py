@@ -1,25 +1,19 @@
 import os
 from pathlib import Path
 from typing import List
-
 from pydantic import BaseModel, Field
 
-# LLM + Prompting
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 
-# LCEL
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
-# Documents
 from langchain_core.documents import Document
 
-# Embeddings + Vector DB
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.vectorstores import Chroma
 
-# Retrievers
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever, ContextualCompressionRetriever
 
@@ -27,9 +21,6 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_classic.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
 
 
-# ==========================================
-# ENV LOADER
-# ==========================================
 def load_env():
     if not os.getenv("GOOGLE_API_KEY"):
         env_path = Path.cwd() / ".env"
@@ -48,18 +39,12 @@ def load_env():
         raise EnvironmentError("GOOGLE_API_KEY is not set.")
 
 
-# ==========================================
-# SCHEMA
-# ==========================================
 class ExpandedQuery(BaseModel):
     original_query: str = Field(description="User input")
     expanded_search_term: str = Field(description="Optimized query")
     reasoning: str = Field(description="Why expanded")
 
 
-# ==========================================
-# LLM SETUP
-# ==========================================
 def get_llm():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
@@ -67,9 +52,6 @@ def get_llm():
     )
 
 
-# ==========================================
-# QUERY REWRITE CHAIN
-# ==========================================
 def build_query_rewrite_chain(llm):
     parser = PydanticOutputParser(pydantic_object=ExpandedQuery)
 
@@ -96,17 +78,13 @@ def build_query_rewrite_chain(llm):
     )
 
 
-# ==========================================
-# VECTOR DB + RETRIEVERS
-# ==========================================
 def initialize_retrievers(
     db_directory: str,
     embedding_model: str,
     reranker_model: str,
 ):
-    print("⚙️ Initializing retrievers...")
+    print("Initializing retrievers...")
 
-    # Embeddings
     embeddings = HuggingFaceBgeEmbeddings(
         model_name=embedding_model,
         encode_kwargs={"normalize_embeddings": True},
@@ -119,8 +97,7 @@ def initialize_retrievers(
 
     vector_retriever = vector_db.as_retriever(search_kwargs={"k": 10})
 
-    # BM25
-    print("   ↳ Building BM25 index...")
+    print("   Loading BM25 index...")
     db_data = vector_db.get()
 
     if not db_data["documents"]:
@@ -134,14 +111,12 @@ def initialize_retrievers(
     bm25_retriever = BM25Retriever.from_documents(documents)
     bm25_retriever.k = 10
 
-    # Hybrid
     ensemble = EnsembleRetriever(
         retrievers=[bm25_retriever, vector_retriever],
         weights=[0.4, 0.6],
     )
 
-    # Reranker
-    print("   ↳ Loading reranker...")
+    print("   Loading reranker...")
     cross_encoder = HuggingFaceCrossEncoder(model_name=reranker_model)
 
     compressor = CrossEncoderReranker(
@@ -157,17 +132,10 @@ def initialize_retrievers(
     return compression_retriever
 
 
-# ==========================================
-# RETRIEVAL FUNCTION (REUSABLE)
-# ==========================================
 def retrieve_documents(retriever, query: str):
-    print(f"🔁 Retrieval Query:\n{query}\n")
+    print(f"Retrieval Query:\n{query}\n")
     return retriever.invoke(query)
 
-
-# ==========================================
-# FORMAT DOCS (REUSABLE)
-# ==========================================
 def format_documents(docs: List[Document]) -> str:
     if not docs:
         return "NO_RELEVANT_POLICIES_FOUND"
@@ -180,9 +148,6 @@ def format_documents(docs: List[Document]) -> str:
     return "\n".join(formatted)
 
 
-# ==========================================
-# SYNTHESIS CHAIN
-# ==========================================
 def build_rag_chain(llm, query_chain, retriever):
     synthesis_prompt = ChatPromptTemplate.from_template("""
     You are a strict, highly accurate Compliance Officer for Nexus Bank.
@@ -220,9 +185,6 @@ def build_rag_chain(llm, query_chain, retriever):
     return final_chain
 
 
-# ==========================================
-# HIGH-LEVEL FUNCTION (USE THIS)
-# ==========================================
 def ask_question(query: str, db_path: str) -> str:
     load_env()
 
@@ -241,20 +203,17 @@ def ask_question(query: str, db_path: str) -> str:
     return rag_chain.invoke(query)
 
 
-# ==========================================
-# ENTRY POINT (OPTIONAL)
-# ==========================================
 if __name__ == "__main__":
     DB_PATH = r"A:\RAG\nexus_chroma_db_local"
 
     query = "is screen recording allowed on office laptops?"
 
-    print("\n👤 User:", query)
-    print("\n⏳ Processing...\n")
+    print("User:", query)
+    print("Processing...")
 
     answer = ask_question(query, DB_PATH)
 
-    print("\n🤖 ANSWER:")
+    print("ANSWER:")
     print("=" * 60)
     print(answer)
     print("=" * 60)

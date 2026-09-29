@@ -1,0 +1,655 @@
+================================================================================
+                    NexusAI (RAG) - COMPLIANCE ENGINE
+                            PROJECT REPORT
+                           May 14, 2026
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+Project Name:     NexusAI (RAG) - Compliance Engine
+Version:          0.1.0
+Author:           Abhijit Reddy (abhijitreddy828@gmail.com)
+Location:         a:\RAG\
+Purpose:          A Retrieval-Augmented Generation (RAG) based compliance engine
+                  that ingests policy PDFs, builds vector databases, and answers
+                  policy questions using Large Language Models (LLMs).
+
+================================================================================
+PROJECT DESCRIPTION
+================================================================================
+NexusAI is a specialized compliance engine designed for financial institutions,
+particularly for banks. The system:
+
+1. Accepts corporate policy PDFs as uploads
+2. Processes and validates documents to ensure they are legitimate policy files
+3. Extracts and chunks document content for efficient retrieval
+4. Builds a vector database (Chroma) for semantic search
+5. Uses ensemble retrieval methods to find relevant policy information
+6. Answers user queries about policies using Google Gemini 2.5 Flash LLM
+7. Provides a user-friendly Streamlit web interface
+
+The engine is designed to help compliance teams and employees quickly find
+and understand relevant policy information without manually searching through
+hundreds of pages of documentation.
+
+================================================================================
+TECHNICAL ARCHITECTURE
+================================================================================
+
+TECH STACK:
+-----------
+- Programming Language:    Python 3.10+ (up to 3.13)
+- Web Framework:           Streamlit 1.57.0
+- LLM Integration:         LangChain 1.2.17 with Google GenAI
+- LLM Model:              Google Gemini 2.5 Flash
+- Document Processing:    PyMuPDF (fitz) 1.27.2.3, Unstructured 0.18.32
+- Vector Database:        Chroma (Local)
+- Embeddings Model:       BAAI/bge-large-en-v1.5 (Sentence Transformers)
+- Retrieval Methods:      BM25, Hybrid Ensemble, Cross-Encoder Reranking
+- OCR Support:            Tesseract-OCR (Optional)
+- Environment:            Python-dotenv 1.2.2, ONNX Runtime 1.23.2
+- Additional:             TorchVision 0.26.0, Timm 1.0.26
+
+ARCHITECTURE LAYERS:
+--------------------
+1. UI Layer:              Streamlit application (app.py)
+2. API Layer:             Service modules (policy_analysis_pipeline, rag_query_service)
+3. Processing Layer:      Document classification, ingestion, chunking
+4. Storage Layer:         Local Chroma vector database
+5. Retrieval Layer:       Ensemble retrievers with reranking
+6. LLM Layer:             Google Gemini API integration
+
+================================================================================
+DIRECTORY STRUCTURE
+================================================================================
+
+a:\RAG\
+│
+├── app.py                           # Main Streamlit application entry point
+├── document_classifier.py           # Document classification logic (policy vs non-policy)
+├── document_validator.py            # Document validation logic
+├── ingestion_service.py             # PDF extraction, processing, and chunking
+├── pyproject.toml                   # Poetry project configuration
+├── requirements.txt                 # Python dependencies (pinned versions)
+├── README.md                        # Project documentation
+├── report.txt                       # This report file
+│
+├── policy/                          # Sample policy PDF documents
+│   ├── Nexus_Bank_AI_and_Model_Risk_Management_Policy_v2.0.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_AML_Policy.pdf
+│   ├── Nexus_Bank_CCEH_Standard_v3.1.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_Code_of_Conduct.pdf
+│   ├── Nexus_Bank_Customer_Complaints_Handling_and_Resolution_Policy_v4.2.1_RESTRICTED.pdf
+│   ├── Nexus_Bank_Data_Privacy.pdf
+│   ├── Nexus_Bank_ESG_Risk_Policy_v1.0.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_FPIR_Policy_v3.1.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_InsiderTrading_PersonalInvestment_Policy_v2.2.0.pdf
+│   ├── Nexus_Bank_Loan_Guidelines.pdf
+│   ├── Nexus_Bank_Physical_Security_and_Access_Control_Policy_v3.0.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_Social_Media_and_External_Communications_Policy_v1.5.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_TPVRM_Policy_v3.1.0_RESTRICTED.pdf
+│   ├── Nexus_Bank_Vendor_Risk.pdf
+│   └── policy.pdf
+│
+├── services/                        # Core service modules
+│   ├── __init__.py
+│   ├── policy_analysis_pipeline.py  # Main document processing pipeline
+│   └── rag_query_service.py         # RAG query service and LLM integration
+│
+└── utils/                           # Utility functions
+    └── file_handler.py              # File upload and storage handling
+
+================================================================================
+KEY COMPONENTS & MODULES
+================================================================================
+
+1. app.py (Main Entry Point)
+   ─────────────────────────────────────────────────────────────────────────
+   - Streamlit web application
+   - Two main tabs: "Policy Upload" and "Ask Question"
+   - Handles user file uploads and query inputs
+   - Integrates with backend pipelines
+
+2. document_classifier.py
+   ─────────────────────────────────────────────────────────────────────────
+   Functions:
+   - extract_smart_sample(file_path): Intelligently samples pages from PDF
+     (first 2, middle 2, last 2 pages if >6 pages total)
+   - classify_document_text(text): Uses Google Gemini to classify if text
+     is a corporate policy
+   - classify_document(file_path): Main classification function
+   
+   Purpose: Validates that uploaded files are legitimate policy documents
+            before processing
+
+3. ingestion_service.py
+   ─────────────────────────────────────────────────────────────────────────
+   Functions:
+   - setup_ocr(): Configures Tesseract OCR path for PDF processing
+   - extract_pdf_elements(file_path): Extracts elements from PDF using
+     unstructured library with hi-res strategy
+   - extract_from_folder(folder_path): Batch extracts from multiple PDFs
+   - is_valid_chunk(text): Filters out noisy/garbage chunks from OCR
+   - chunk_elements(elements): Groups extracted elements into semantic chunks
+   
+   Purpose: Extracts text, tables, images, and other elements from PDFs
+            and chunks them for embedding
+
+4. services/policy_analysis_pipeline.py
+   ─────────────────────────────────────────────────────────────────────────
+   Functions:
+   - get_single_pdf(upload_folder): Retrieves single PDF from uploads
+   - process_document(file_path): Validates and processes uploaded document
+   - run_document_pipeline(file_path): Main orchestration function that:
+     * Classifies document
+     * Extracts PDF elements
+     * Creates semantic chunks
+     * Stores in vector database
+   
+   Purpose: Orchestrates the complete document ingestion workflow
+
+5. services/rag_query_service.py
+   ─────────────────────────────────────────────────────────────────────────
+   Functions:
+   - load_env(): Loads environment variables from .env file
+   - get_llm(): Initializes Google Gemini chat model
+   - initialize_retrievers(docs, db_path): Sets up ensemble retrievers:
+     * BM25 retriever (keyword-based)
+     * Chroma vector store retriever (semantic)
+     * CrossEncoderReranker for result reranking
+   - retrieve_documents(query): Retrieves relevant docs using ensemble
+   - format_documents(docs): Formats retrieved docs for LLM
+   - ask_question(query): Main RAG pipeline - retrieves docs and generates answer
+   
+   Purpose: Implements the RAG pipeline with advanced retrieval techniques
+
+6. utils/file_handler.py
+   ─────────────────────────────────────────────────────────────────────────
+   Functions:
+   - save_uploaded_file(uploaded_file): Saves user-uploaded files to disk
+   
+   Purpose: Handles file I/O operations for uploaded documents
+
+7. document_validator.py
+   ─────────────────────────────────────────────────────────────────────────
+   Purpose: Additional document validation logic (module present but not
+            fully documented in current codebase)
+
+================================================================================
+WORKFLOW & FEATURES
+================================================================================
+
+DOCUMENT INGESTION WORKFLOW:
+─────────────────────────────────────────────────────────────────────────
+1. User uploads PDF via Streamlit UI (Policy Upload tab)
+2. File is saved to ./uploads/ folder
+3. Document Classifier validates it's a policy (uses Gemini LLM)
+4. PDF elements are extracted using unstructured library:
+   - Text paragraphs
+   - Tables with structure
+   - Images
+   - Metadata
+5. Elements are chunked using title-based chunking strategy
+6. Invalid chunks (noise, too short, garbage OCR) are filtered
+7. Chunks are embedded using BAAI/bge-large-en-v1.5 model
+8. Embeddings stored in local Chroma vector database
+9. BM25 index created for keyword search
+
+QUERY & RETRIEVAL WORKFLOW:
+─────────────────────────────────────────────────────────────────────────
+1. User enters question via "Ask Question" tab in UI
+2. Query is processed through ensemble retriever:
+   - BM25 retriever: keyword-based matching
+   - Chroma retriever: semantic similarity search
+   - Results combined and cross-encoded reranked
+3. Top-K most relevant document chunks retrieved
+4. Retrieved chunks formatted as context
+5. Query + context passed to Google Gemini 2.5 Flash
+6. LLM generates policy-aware answer
+7. Answer displayed to user with relevant document references
+
+KEY FEATURES:
+─────────────────────────────────────────────────────────────────────────
+✓ Smart document classification (policy detection)
+✓ Advanced PDF extraction with table/image support
+✓ OCR-aware chunking with noise filtering
+✓ Hybrid retrieval (BM25 + semantic + reranking)
+✓ Multi-page PDF processing
+✓ Vector database persistence
+✓ User-friendly Streamlit interface
+✓ Google Gemini LLM integration
+✓ Environment-based configuration
+
+================================================================================
+DEPENDENCIES & PACKAGES
+================================================================================
+
+Core Dependencies (from requirements.txt):
+──────────────────────────────────────────────────────────────────────────
+
+AI/ML Framework:
+  - langchain==1.2.17                    # LLM orchestration framework
+  - langchain-core==1.3.2                # Core LangChain components
+  - langchain-classic==1.0.4             # Classic LangChain features
+  - langchain-google-genai==4.2.2        # Google GenAI integration
+  - langchain-community==0.4.1           # Community retrievers & tools
+  - sentence-transformers==5.4.1        # Embedding model (BGE)
+  - openai==0.27.10                      # OpenAI compatibility layer
+
+LLM & API:
+  - langchain-google-genai==4.2.2        # Google Gemini API client
+
+Document Processing:
+  - pymupdf==1.27.2.3                    # PDF text extraction (fitz)
+  - unstructured==0.18.32                # Advanced PDF element extraction
+  - unstructured[pdf]                    # PDF extraction extra dependencies
+
+Vector Database:
+  - chroma                               # Vector database (implicit)
+
+Web Framework:
+  - streamlit==1.57.0                    # UI framework
+
+Environment & Config:
+  - python-dotenv==1.2.2                # .env file loading
+
+ML/Vision (Supporting):
+  - torchvision==0.26.0                 # Vision transformers
+  - timm==1.0.26                         # Timm model library
+  - onnxruntime==1.23.2                 # ONNX runtime for model inference
+
+Dev Dependencies:
+  - ipykernel>=7.2.0,<8.0.0             # Jupyter kernel support
+
+Python Constraints:
+  - Python >=3.10,<3.14                 # Supported Python versions
+
+System Dependencies:
+  - Tesseract-OCR                       # Optional OCR for scanned PDFs
+  - Path: C:\Program Files\Tesseract-OCR\tesseract.exe
+
+================================================================================
+SETUP & INSTALLATION
+================================================================================
+
+PREREQUISITES:
+──────────────────────────────────────────────────────────────────────────
+1. Python 3.10+ installed (up to Python 3.13)
+2. Git installed
+3. Google API Key for Gemini access
+4. (Optional) Poetry for dependency management
+5. (Optional) Tesseract-OCR for PDF scanning support
+
+INSTALLATION STEPS:
+──────────────────────────────────────────────────────────────────────────
+
+Step 1: Create Virtual Environment
+  $ python -m venv .venv
+  
+  # Windows:
+  $ .\.venv\Scripts\activate
+  
+  # macOS/Linux:
+  $ source .venv/bin/activate
+
+Step 2: Install Dependencies
+  $ pip install -r requirements.txt
+
+Step 3: Create .env File
+  Create a file named ".env" in project root with:
+  
+  GOOGLE_API_KEY=your_actual_api_key_here
+
+Step 4: (Optional) Install Tesseract-OCR
+  Download from: https://github.com/UB-Mannheim/tesseract/wiki
+  Install to default location or update path in ingestion_service.py
+
+Step 5: Run the Application
+  $ streamlit run app.py
+  
+  This starts a local web server (typically on http://localhost:8501)
+
+USING POETRY (Alternative):
+──────────────────────────────────────────────────────────────────────────
+$ poetry install
+$ poetry run streamlit run app.py
+
+Or export full requirements:
+$ poetry export -f requirements.txt --output full-requirements.txt --without-hashes
+
+================================================================================
+HOW TO USE
+================================================================================
+
+1. UPLOAD POLICY DOCUMENTS:
+   ────────────────────────────────────────────────────────────────────
+   a) Open Streamlit app in browser (http://localhost:8501)
+   b) Go to "📄 Policy Upload" tab
+   c) Click "Upload a single PDF"
+   d) Select a PDF policy document
+   e) Click "Analyze Policy" button
+   f) Wait for processing (shows spinner)
+   g) Document validated, processed, and stored in vector DB
+
+2. ASK POLICY QUESTIONS:
+   ────────────────────────────────────────────────────────────────────
+   a) Go to "💬 Ask Question" tab
+   b) Enter your policy-related question
+   c) Click "Search" or press Enter
+   d) System retrieves relevant policy sections
+   e) Google Gemini generates comprehensive answer
+   f) Answer displayed with reference information
+
+EXAMPLE QUESTIONS:
+   - "What is the policy on insider trading?"
+   - "What documents are required for loan approval?"
+   - "What are the data privacy requirements?"
+   - "Who handles customer complaints?"
+
+================================================================================
+DATA & STORAGE
+================================================================================
+
+LOCAL STORAGE LOCATIONS:
+──────────────────────────────────────────────────────────────────────────
+- Uploaded PDFs:           ./uploads/
+- Vector Database:         A:\RAG\nexus_chroma_db_local\
+  (Note: This folder is in .gitignore to avoid committing data)
+
+SAMPLE POLICY DOCUMENTS (in policy/ folder):
+──────────────────────────────────────────────────────────────────────────
+The project includes 15 sample policy documents from "Nexus Bank":
+
+1. AI_and_Model_Risk_Management_Policy_v2.0.0
+2. AML_Policy (Anti-Money Laundering)
+3. CCEH_Standard_v3.1.0
+4. Code_of_Conduct
+5. Customer_Complaints_Handling_and_Resolution_Policy_v4.2.1
+6. Data_Privacy_Policy
+7. ESG_Risk_Policy_v1.0.0
+8. FPIR_Policy_v3.1.0 (Financial Planning & Investment Risk)
+9. InsiderTrading_PersonalInvestment_Policy_v2.2.0
+10. Loan_Guidelines
+11. Physical_Security_and_Access_Control_Policy_v3.0.0
+12. Social_Media_and_External_Communications_Policy_v1.5.0
+13. TPVRM_Policy_v3.1.0 (Third Party Vendor Risk Management)
+14. Vendor_Risk_Policy
+15. policy.pdf (Generic policy template)
+
+These sample policies can be used to test and populate the vector database.
+
+================================================================================
+CONFIGURATION
+================================================================================
+
+ENVIRONMENT VARIABLES (.env file):
+──────────────────────────────────────────────────────────────────────────
+GOOGLE_API_KEY=your_google_gemini_api_key
+
+HARDCODED CONFIGURATIONS (can be customized):
+──────────────────────────────────────────────────────────────────────────
+
+In policy_analysis_pipeline.py:
+  - UPLOAD_FOLDER = "./uploads"
+  - DB_PATH = r"A:\RAG\nexus_chroma_db_local"
+
+In ingestion_service.py:
+  - TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+  - EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+
+In document_classifier.py:
+  - LLM_MODEL = "gemini-2.5-flash"
+  - TEMPERATURE = 0.0 (deterministic output)
+
+In rag_query_service.py:
+  - Vector store paths and configuration
+
+================================================================================
+ADVANCED RETRIEVAL ARCHITECTURE
+================================================================================
+
+ENSEMBLE RETRIEVER SYSTEM:
+──────────────────────────────────────────────────────────────────────────
+The system uses a sophisticated multi-method retrieval approach:
+
+1. BM25 RETRIEVER (Keyword-Based)
+   - Traditional information retrieval
+   - Good for exact term matching
+   - Fast and efficient
+   - Weight: 50%
+
+2. SEMANTIC RETRIEVER (Chroma Vector DB)
+   - Dense vector embeddings using BGE model
+   - Captures semantic meaning
+   - Handles paraphrasing and conceptual similarities
+   - Weight: 50%
+
+3. CROSS-ENCODER RERANKING
+   - Takes results from both retrievers
+   - Uses HuggingFace Cross-Encoder for precision ranking
+   - Reorders results by relevance
+   - Improves answer quality
+
+RETRIEVAL FLOW:
+   Query
+     ↓
+   ├─→ BM25 Retriever (Top-K results)
+     ├─→ Vector DB Retriever (Top-K results)
+       ↓
+       ├─→ Combined Results
+         ↓
+         ├─→ Cross-Encoder Reranker
+           ↓
+           └─→ Final Ranked Results → LLM
+
+================================================================================
+KNOWN LIMITATIONS & FUTURE IMPROVEMENTS
+================================================================================
+
+CURRENT LIMITATIONS:
+──────────────────────────────────────────────────────────────────────────
+1. Single PDF upload at a time (by design)
+2. Local Chroma database only (no distributed vector DB support)
+3. English language policy documents only
+4. Tesseract-OCR optional (for scanned PDFs)
+5. No user authentication/authorization
+6. No query history persistence
+7. No document version control
+8. Limited error handling for API failures
+
+RECOMMENDED IMPROVEMENTS (Next Steps):
+──────────────────────────────────────────────────────────────────────────
+1. ✓ Add comprehensive unit tests for:
+   - Document classifier
+   - Ingestion service
+   - RAG query service
+   
+2. ✓ Add GitHub Actions CI/CD workflow for:
+   - Linting (pylint, flake8)
+   - Testing (pytest)
+   - Code quality checks
+
+3. ✓ Enhanced error handling:
+   - File I/O error handling
+   - External API failure handling
+   - Retry logic with exponential backoff
+   - User-friendly error messages
+
+4. ✓ Input validation improvements:
+   - File size limits
+   - PDF format validation
+   - Query length limits
+   - Malware scanning
+
+5. ✓ Additional features:
+   - Batch PDF upload
+   - Document version tracking
+   - Query caching
+   - Multi-language support
+   - User authentication
+   - Audit logging
+   - Performance metrics dashboard
+
+6. ✓ Database improvements:
+   - Cloud-based vector storage (Pinecone, Weaviate)
+   - PostgreSQL integration
+   - Database migration system
+
+7. ✓ LLM improvements:
+   - Support for multiple LLM providers (OpenAI, Anthropic)
+   - Model fine-tuning on compliance documents
+   - Response confidence scoring
+   - Citation tracking
+
+8. ✓ Deployment:
+   - Containerization (Docker)
+   - Kubernetes deployment
+   - Cloud hosting (AWS, GCP, Azure)
+   - API endpoint exposure
+
+================================================================================
+PERFORMANCE CONSIDERATIONS
+================================================================================
+
+OPTIMIZATION AREAS:
+──────────────────────────────────────────────────────────────────────────
+- Embedding caching for frequently queried documents
+- Vector database indexing optimization
+- Query result caching
+- Batch processing for multiple PDFs
+- Async processing for long-running tasks
+- Rate limiting for API calls
+
+SCALABILITY ASPECTS:
+──────────────────────────────────────────────────────────────────────────
+- Currently designed for single-instance deployment
+- Chroma DB can handle thousands of documents
+- Ensemble retrieval increases latency slightly but improves quality
+- LLM API rate limits should be considered
+- Database replication strategy needed for production
+
+================================================================================
+SECURITY CONSIDERATIONS
+================================================================================
+
+CURRENT IMPLEMENTATION:
+──────────────────────────────────────────────────────────────────────────
+- API keys loaded from .env file (not hardcoded)
+- File uploads stored locally
+- No user authentication
+- No data encryption
+
+RECOMMENDATIONS:
+──────────────────────────────────────────────────────────────────────────
+- Implement user authentication (OAuth/JWT)
+- Add role-based access control (RBAC)
+- Encrypt sensitive data at rest
+- Use secure file handling
+- Implement rate limiting
+- Add audit logging
+- Regular security audits
+- GDPR compliance for personal data
+
+================================================================================
+TESTING & DEBUGGING
+================================================================================
+
+RUNNING TESTS:
+──────────────────────────────────────────────────────────────────────────
+Currently no automated tests present. To add tests:
+
+$ pytest tests/  # Once test suite is created
+
+DEBUGGING:
+──────────────────────────────────────────────────────────────────────────
+1. Enable debug logging in individual modules
+2. Use Streamlit's st.write() for debugging
+3. Check console output for error messages
+4. Verify .env file is properly configured
+5. Test PDF extraction with sample files
+6. Check Chroma database connectivity
+
+LOGS LOCATION:
+──────────────────────────────────────────────────────────────────────────
+- Streamlit logs: Printed to console
+- Application logs: Printed to console
+- No persistent log files currently
+
+================================================================================
+PROJECT METRICS & STATISTICS
+================================================================================
+
+CODE STATISTICS:
+──────────────────────────────────────────────────────────────────────────
+Main Modules:
+- app.py:                           ~100 lines (Streamlit UI)
+- document_classifier.py:           ~100+ lines (Classification logic)
+- ingestion_service.py:             ~150+ lines (PDF processing)
+- document_validator.py:            (Present but details TBD)
+- services/policy_analysis_pipeline.py: ~80+ lines (Orchestration)
+- services/rag_query_service.py:    ~200+ lines (RAG implementation)
+- utils/file_handler.py:            ~20 lines (File utilities)
+
+TOTAL PROJECT SIZE: ~750+ lines of Python code
+
+DEPENDENCY COUNT:
+──────────────────────────────────────────────────────────────────────────
+- Direct dependencies: 12-15 major packages
+- Transitive dependencies: 50+ packages (full install)
+
+SAMPLE DATA:
+──────────────────────────────────────────────────────────────────────────
+- Policy documents: 15 sample PDFs from Nexus Bank
+- Estimated total content: 1000+ pages across all policies
+
+================================================================================
+CONTACT & SUPPORT
+================================================================================
+
+PROJECT AUTHOR:
+──────────────────────────────────────────────────────────────────────────
+Name:      Abhijit Reddy
+Email:     abhijitreddy828@gmail.com
+GitHub:    https://github.com/abhijitreddy-06
+
+EXTERNAL RESOURCES:
+──────────────────────────────────────────────────────────────────────────
+- Google Gemini API Docs: https://cloud.google.com/generative-ai
+- LangChain Docs: https://python.langchain.com
+- Streamlit Docs: https://docs.streamlit.io
+- Chroma Docs: https://docs.trychroma.com
+- BGE Embeddings: https://huggingface.co/BAAI/bge-large-en-v1.5
+
+================================================================================
+NOTES & OBSERVATIONS
+================================================================================
+
+KEY STRENGTHS:
+──────────────────────────────────────────────────────────────────────────
+1. Well-designed modular architecture
+2. Advanced retrieval techniques (ensemble + reranking)
+3. Intelligent document validation before processing
+4. Robust PDF extraction with multiple strategies
+5. Clean separation of concerns
+6. User-friendly Streamlit interface
+7. Sample policies included for testing
+
+AREAS FOR ATTENTION:
+──────────────────────────────────────────────────────────────────────────
+1. Error handling needs enhancement
+2. No automated test coverage
+3. No CI/CD pipeline configured
+4. Documentation could be expanded
+5. Input validation needs strengthening
+6. Performance optimization opportunities
+
+DEPLOYMENT STATUS:
+──────────────────────────────────────────────────────────────────────────
+- Current: Local development environment
+- Ready for: Internal testing and demonstration
+- Needs: Production hardening and security review before public deployment
+
+================================================================================
+                            END OF REPORT
+                         Report Generated: May 14, 2026
+================================================================================

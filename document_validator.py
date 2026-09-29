@@ -4,10 +4,6 @@ from pathlib import Path
 
 from document_classifier import classify_document
 
-
-# ==========================================
-# 1. LOAD ENV
-# ==========================================
 def load_env():
     env_path = Path.cwd() / ".env"
     
@@ -24,47 +20,36 @@ def load_env():
             if k and k not in os.environ:
                 os.environ[k] = v
 
-
-# ==========================================
-# 2. STRICT SINGLE FILE PIPELINE
-# ==========================================
 def process_single_upload(upload_folder: str = "./uploads"):
     pdf_files = glob.glob(os.path.join(upload_folder, "*.pdf"))
 
-    # 🚫 No file
     if not pdf_files:
         raise FileNotFoundError(f"No PDF found in '{upload_folder}'")
 
-    # 🚫 More than one file
     if len(pdf_files) > 1:
         raise ValueError(
             f"Multiple PDFs found in '{upload_folder}'. Only one file is allowed."
         )
 
-    # ✅ Exactly one file
     file_path = pdf_files[0]
     filename = os.path.basename(file_path)
 
-    print(f"📄 Processing: {filename}")
+    print(f"Processing: {filename}")
 
     try:
         is_policy = classify_document(file_path)
 
         if is_policy:
-            print("✅ POLICY DOCUMENT")
+            print("POLICY DOCUMENT")
         else:
-            print("🚫 NOT A POLICY")
+            print("NOT A POLICY")
 
         return is_policy
 
     except Exception as e:
-        print(f"❌ Error processing {filename}: {e}")
+        print(f"Error processing {filename}: {e}")
         return False
 
-
-# ==========================================
-# 3. ENTRY POINT
-# ==========================================
 if __name__ == "__main__":
     load_env()
 
